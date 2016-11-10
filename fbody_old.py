@@ -2,59 +2,27 @@ import inspect
 import re
 import binascii
 import types
-import copy
 
 class PlaceHolder:
     def __init__(self, func):
         self.func = func
         
-    def apply(self, args, kwargs={}):
+    def __call__(self, args, kwargs={}):
         return self.func(*args, **kwargs)
-
-class PlaceHolderConst:
-    def __init__(self, value):
-        self.value = value
-        
-    def apply(self, args, kwargs=None):
-        return self.value
-        
-class PlaceHolderApply:
-    def __init__(self, poses, func=None):
-        self.poses = poses
-        self.func = func
-    
-    def apply(self, args, kwargs={}):
-        return self.func(*map(lambda i: args[i], self.poses))
-    
-    def __call__(self, func):
-        return PlaceHolderApply(self.poses, func)
         
 class PlaceHolderPick:
     def __init__(self, pos):
         self.pos = pos
     
-    def apply(self, args, kwargs=None):
+    def __call__(self, args, kwargs=None):
         return args[self.pos]
-    
-    def __call__(self, func):
-        return PlaceHolderApply([self.pos], func)
-    
     
 _1 = PlaceHolderPick(0)
 _2 = PlaceHolderPick(1)
 _3 = PlaceHolderPick(2)
 _4 = PlaceHolderPick(3)
 
-_12 = PlaceHolderApply((1, 2))
-_13 = PlaceHolderApply((1, 3))
-_23 = PlaceHolderApply((2, 3))
-_14 = PlaceHolderApply((1, 2))
-_24 = PlaceHolderApply((2, 4))
-_34 = PlaceHolderApply((3, 4))
-
-
-  
-  
+        
 class Function:
     def __init__(self, func, param=None, body=None):
         self.func = func
@@ -63,14 +31,50 @@ class Function:
         self._closure_args = ()
         self._partial_args = ()
         
+    def _body_inline(self, *args, **kwargs):
+        body = self.body
+        def replace(body, k, v):
+            if isinstance(v, Function):
+                '''
+                f = x -> x + 1
+                >>> _body_inline('f, a -> f(a)', f)
+                a -> a + 1
+                '''
+                last = 0
+                new_body = ''
+                for m in re.finditer(' ' + k + r'\((.*?)\) ', body):
+                    param = m.group(1).split(',')
+                    new_body += body[last:m.start()]
+                    new_body += v._body_inline(*param)[1]
+                    last = m.end()
+                return new_body + body[last:]
+            else:
+                return body.replace(' %s ' % k, ' %s ' % v)
+            
+        i = None
+        for i, clos in enumerate(self._closure_args + args):
+            body = replace(body, self.param[i], clos)
+            
+        param = list(self.param[i+1 if i is not None else 0:])
+        for k, v in kwargs.items():
+            assert(k in param)
+            param.remove(k)
+            body = replace(body, k, v)
+        return ', '.join(param), body
+        
+    def inline(self, *args, **kwargs):
+        param, body = self._body_inline(*args, **kwargs)
+        code = 'lambda %s: %s' % (param, body)
+        print(code)
+        return eval(code)
        
     def _transform(self, args, kwargs):
         if not self._partial_args:
             return args
         elif self._partial_args[-1] == '_placeholder_end':
-            return tuple(p.apply(args, kwargs) for p in self._partial_args[:-1]) + args[len(self._partial_args)-1:]
+            return tuple(p(args, kwargs) for p in self._partial_args[:-1]) + args[len(self._partial_args)-1:]
         else:
-            return tuple(p.apply(args, kwargs) for p in self._partial_args)
+            return tuple(p(args, kwargs) for p in self._partial_args)
         
     def closure(self, *closure_args):
         self._closure_args += closure_args
@@ -89,6 +93,15 @@ class Function:
         fobj.partial(PlaceHolder(self), *compose_args)
         return fobj
         
+    @property
+    def _cached(self):
+        inspect.cleandoc('''
+        def f(this, func, {0}):
+            def f2(*args, kwargs):
+                return func({1}, *this._transform(args, kwargs), **kwargs)
+            return f2
+        ''')
+        
     def __call__(self, *args, **kwargs):
         return self.func(*(self._closure_args + self._transform(args, kwargs)), **kwargs)
     
@@ -103,7 +116,7 @@ def over(*funcs):
     return OverFunction().overMore(funcs)
 
 
-def lambda_(body, **closure):
+def Lambda(body, **closure):
     assert '->' in body
     param, body = body.split('->')
     param_list = tuple(closure.keys()) + tuple(p.strip() for p in param.split(','))
@@ -113,19 +126,17 @@ def lambda_(body, **closure):
     return Function(func, param_list, body).closure(*closure.values())
 
 
-
-
-
-
-
 a=8
-print(lambda_('x -> a + x ', a=a)(3))
+print(Lambda('x -> a + x ', a=a)(3))
+print(Lambda('x -> a + x ', a=a).inline(x=4)())
+# print(Lambda('y -> y + 5 ')._body_inline(4))
+print(Lambda('f -> a + f( a ) ', a=a).inline(f=Lambda('y -> y + y '))())
+print(Lambda('f, a -> a + f( a ) ').inline(f=Lambda('y -> y + y '))(2))
 
 
 
 
-
-
+    
 def g():
     a = 1
     def f(a, c):
