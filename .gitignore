@@ -95,3 +95,8 @@ bin/
 *.exe
 *.msi
 
+*.sublime-*
+
+# short time
+_del/
+msgpack/

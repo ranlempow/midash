@@ -1,25 +1,26 @@
 # -*- coding: UTF-8 -*-
 
-import sys
 import inspect
-import types
+# import types as _types
 
 
 
 class TopLevel:
     pass
-    
+
+
 class Type(type):
     def __init__(cls, name, bases, namespace):
         pass
         
     def __repr__(cls):
         return "<class %s>" % cls.__name__
-        
+
     # for pdoc
     def __subclasses__():
         return ()
-        
+
+
 class _Method:
     def __init__(self, name, value, binds, specs, module, super=None):
         """
@@ -54,36 +55,39 @@ class _Method:
         import itertools
         target = target if target is not None else [_]
         specs = specs if specs is not None else [True]
-        self.binds.extend([ e for e in target if e not in self.binds])
-        self.specs.extend([ e for e in specs if e not in self.specs])
-        self.combination.extend([ e for e in itertools.product(target, specs) if e not in self.combination])
+        self.binds.extend([e for e in target if e not in self.binds])
+        self.specs.extend([e for e in specs if e not in self.specs])
+        self.combination.extend([e for e in itertools.product(target, specs) if e not in self.combination])
     
     # def same(self, other):
-    #     return self.func == other.func  
+    #     return self.func == other.func
     # def same(self, other):
     #     return self.name == other.name and self.bind == other.bind
         
     def __repr__(self):
         return '<Method {} {}>'.format(self.name, self.module)
-        
+
 
 _debug_mixin_observer = {}
+
+
 def _clear_debug():
     for v in _debug_mixin_observer.values():
         del v[:]
-        
+
+
 _CreateOnlyFromMixin = object()
+
 
 def mixinTo(target=None, specs=None, name=None, module=None):
     def wrap(func):
         match = list(filter(lambda m: m.value == func, _._methods))
         if len(match) == 0:
-            method = _Method(
-                    name or func.__name__,
-                    func,
-                    target,
-                    specs if specs is not _CreateOnlyFromMixin else None,
-                    module)
+            method = _Method(name or func.__name__,
+                             func,
+                             target,
+                             specs if specs is not _CreateOnlyFromMixin else None,
+                             module)
             _._methods.append(method)
         else:
             method = match[0]
@@ -96,11 +100,11 @@ def mixinTo(target=None, specs=None, name=None, module=None):
 def mixin(target, source=None, inherit=None, chain=True, module=None, *, _debug=False):
     if source is None:
         source = target
-        target = (_,) 
+        target = (_,)
     if not isinstance(target, tuple):
         target = (target,)
     
-    sourceIsLocalized = isinstance(source, types.ModuleType) and hasattr(source, 'mixin')
+    assert(not isinstance(source, types.ModuleType))
     pairs = []
     if isinstance(source, types.FunctionType):
         pairs.append((source.__name__, source))
@@ -133,21 +137,12 @@ def mixin(target, source=None, inherit=None, chain=True, module=None, *, _debug=
                 else:
                     # skip string target that is not in TopLevel
                     continue
-            
-            # handler super inherit
-            # supers = list(filter(method.same, _._methods))
-            # if len(supers) > 0:
-                # if sourceIsLocalized:
-                    # continue
-                # super = supers[0]
-                # method.super = super
-                # if inherit:
-                    # method.value = inherit(super.value, method.value)
-                # _._methods.remove(super)
-            # _._methods.append(method)
-            
+                        
             # inject to bind target
-            setattr(bind, method.name, method.value)
+            value = method.value
+            if hasattr(bind, '_mixfix'):
+                value = bind._mixfix(value)
+            setattr(bind, method.name, value)
             
             # inject to module global
             if bind is _:
@@ -174,14 +169,25 @@ def methods(mixins=None, catalog=None, includeHidden=False, functionOnly=False):
         
     groupModule = {}
     for (name, module, shortdesc), _methods in groupName.items():
-        groupModule.setdefault(module, []).append( ((name, module, shortdesc), _methods) )
+        groupModule.setdefault(module, []).append(
+            ((name, module, shortdesc), _methods)
+        )
        
     for module, contains in sorted(groupModule.items(), key=lambda v: v[0]):
         print('## ' + module)
         for (name, module, shortdesc), _methods in sorted(contains, key=lambda v: v[0][0]):
             print('    {:20s} {:12s} {}'.format(name, module, shortdesc))
             
-        
+
+def types():
+    types = set()
+    for t in _.__dict__.values():
+        if isinstance(t, Type):
+            types.add(t)
+    t = list(t)
+    return t
+    
+    
 def require(path, *, _debug=False):
     import importlib
     import copy
@@ -199,10 +205,10 @@ def require(path, *, _debug=False):
         if hasattr(module, 'setup'):
             oldTopLevel = copy.copy(_)
             oldTopLevel.mixin = (lambda mod: lambda *args: mixin(*args, module=mod, _debug=_debug))(module.__name__)
-            #print('setup', module)
+            # print('setup', module)
             module.setup(oldTopLevel)
         else:
-            #print('autosetup', module)
+            # print('autosetup', module)
             mixin(module, module=module.__name__, _debug=_debug)
         module._already_setup = True
     return module
@@ -219,11 +225,11 @@ def localize(*members):
             setattr(mod, name, method)
     
     
-def describe(doc=None):
-    def describer(func):
-        func.__doc__ = doc
-        return func
-    return describer
+# def describe(doc=None):
+    # def describer(func):
+        # func.__doc__ = doc
+        # return func
+    # return describer
     
     
 _ = TopLevel()

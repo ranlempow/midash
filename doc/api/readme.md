@@ -13,15 +13,15 @@ Method Of Builtin Types
 | function signature            | description                     |
 |-------------------------------|---------------------------------|
 | castTo(v, type)               |
-| cast(type, v)                 | «¬§OÂà´«
-| clone(v)                      | §¹¾ã½Æ»s
-| TYPE()                        | ª«¥ó«Ø³y
-| TYPE(v)                       | ª«¥ó¥]ÂĞ or «¬§OÂà´« or ­ì«¬´À´«
+| cast(type, v)                 | å‹åˆ¥è½‰æ›
+| clone(v)                      | å®Œæ•´è¤‡è£½
+| TYPE()                        | ç‰©ä»¶å»ºé€ 
+| TYPE(v)                       | ç‰©ä»¶åŒ…è¦† or å‹åˆ¥è½‰æ› or åŸå‹æ›¿æ›
 | isType(v, type)               |
-| is(type, v)                   | «¬§O§P©w
-| isSubclass(type1, type2)      | Ä~©ÓÃö«Y§P©w
+| is(type, v)                   | å‹åˆ¥åˆ¤å®š
+| isSubclass(type1, type2)      | ç¹¼æ‰¿é—œä¿‚åˆ¤å®š
 | isSuperclass(type1, type2)    |
-| typeof(v)                     | ¨ú±oª«¥óªº«¬§O
+| typeof(v)                     | å–å¾—ç‰©ä»¶çš„å‹åˆ¥
 
 ### infinity and not-a-number
 TODO: this part will move to `math`
