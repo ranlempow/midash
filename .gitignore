@@ -95,6 +95,10 @@ bin/
 *.exe
 *.msi
 
+# private folder
+private/
+
+# Sublime Text
 *.sublime-*
 
 # short time
